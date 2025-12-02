@@ -6,7 +6,7 @@ The ALFA toolbox is a MATLAB tool developed for the extraction, processing, rest
 * B.J. (Bart) Keulen     -   Amsterdam UMC, Amsterdam, The Netherlands
 * M.J. (Mariëlle) Stam   -   Amsterdam UMC, Amsterdam, The Netherlands
 
-### Github repository:
+### GitHub repository:
 https://github.com/bjkeulen/ALFA-toolbox
 
 ### Please cite this article when using our toolbox:
