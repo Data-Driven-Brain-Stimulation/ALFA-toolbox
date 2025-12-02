@@ -3,8 +3,8 @@
 The ALFA toolbox is a MATLAB tool developed for the extraction, processing, restructuring and visualization of data from JSON files containing local field potential data recorded by the Medtronic PerceptTM neurostimulator.
 
 ### Developed by:
-* B.J. (Bart) Keulen - Amsterdam UMC
-* M.J. (Mariëlle) Stam - Amsterdam UMC
+* B.J. (Bart) Keulen - Amsterdam UMC, Amsterdam, The Netherlands
+* M.J. (Mariëlle) Stam - Amsterdam UMC, Amsterdam, The Netherlands
 
 ### Github repository:
 https://github.com/bjkeulen/ALFA-toolbox
