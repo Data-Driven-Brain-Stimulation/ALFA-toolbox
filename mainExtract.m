@@ -19,8 +19,10 @@
 % Other parts of the code within this file are inspired by the Percept 
 % toolbox by Yohann Thenaisie and Bart Keulen:
 % https://github.com/YohannThenaisie/PerceptToolbox.
+%
+% This is an open research tool that is not intended for clinical purposes.
 
-%% Settings
+%% Manual settings
 dataset = 2;                            % Select either a a single file (0), a single folder (1) or a set of folders (2)
 ecgMethod = 1;                          % ECG suppression of Streaming data: set to (2) for (extensive) manual suppression, (1) for automatic suppression, (0) for no suppression
 rWindow = [0.25 0.4];                   % Window around R-peak [before after] for calculating SVD components, in seconds. [0.25 0.4] is default, alternatively use [0.2 0.2]
@@ -28,182 +30,69 @@ linenoise = [50, 0.2];                  % Frequency and bandwidth [Hz] of line-n
 tZone = datetime().SystemTimeZone;      % Timezone to use for correcting for UTC offset and daylight saving time of Timeline and Events data. Default is datetime().SystemTimeZone. Set manually by replacing with IANA timezone name (see command timezones())
 plotData = 1;                           % Plot data (1) or not (0)
 showFig = 0;                            % Show figures (1) or not (0)
-            
-%% Get files and directories
 
-% Add all underlying folders to path
-addpath(genpath(cd))
-
-% Get single .json file of patient
-if dataset == 0
-    [fname, fldr] = uigetfile('*.json', 'Select a single JSON file');
-
-    if ischar(fname) && ischar(fldr)
-        if strcmp(fname(end-4:end),'.json')
-            savepath = [fldr filesep fname(1:end-5) '_unpacked'];
-            nfldr = 1;
-            nfiles = 1;
-        else
-            error('No JSON file selected.')
-        end
-    else
-        error('No file selected.')
-    end
-
-% Get folder and all .json files within folder
-elseif dataset == 1
-    rootFolder = uigetdir('','Select a folder');
-
-    if ischar(rootFolder)
-        files = dir([rootFolder '\**\*.json']);
-
-        % Check if files are found, remove duplicates if applicable
-        if isempty(files)
-            error('No JSON files found in selected folder.')
-        else
-            if length(files) > 1
-                fileTable = struct2table(files);
-                [~,idx,~] = unique(fileTable.name);
-                files = files(idx,:);
-            end
-            nfiles = length(files);
-            nfldr = 1;
-
-            [~,rootName] = fileparts(rootFolder);
-            savepath = [rootFolder filesep 'folder_' rootName '_unpacked'];
-        end
-    else
-        error('No folder selected.')
-    end
-
-% Get folder and subfolders
-elseif dataset == 2
-    rootFolder = uigetdir('', 'Select a folderset');
-    showFig = 0;
-
-    if ischar(rootFolder)
-        fldrs = dir(rootFolder);
-        fldrs = fldrs([fldrs.isdir],:);
-        fldrs = fldrs(~matches({fldrs.name},[".",".."]),:);
-        nfldr = length(fldrs);
-
-        % Check if files are found, remove duplicates if applicable
-        if isempty(fldrs)
-            error('No subfolders found. Select a folder containing subfolders')
-        else
-            filecount = [];
-            for c = 1:length(fldrs)
-                filecount = [filecount; dir([rootFolder filesep fldrs(c).name '\**\*.json'])];
-            end
-
-            if isempty(filecount)
-                error('No JSON files found in subfolders of selected folderset.')
-            else
-                [~,rootName] = fileparts(rootFolder);
-                savepath = [rootFolder filesep 'folderset_' rootName '_unpacked'];
-            end
-        end
-    else
-        error('No folder selected.')
-    end
-else
-    error('Incorrect input for dataset. Options are 0, 1 or 2.')
-end
-
-%% Settings and initialisation of structures
-
-% Define which data to extract from json
+%% Standard settings and collection of files
 datafields = {'BrainSenseTimeDomain','DiagnosticData','LfpMontageTimeDomain','BrainSenseSurveysTimeDomain','SenseChannelTests'};
-
-% Create folder to save data and plots into, if needed
-if ~exist(savepath, 'dir')
-   mkdir(savepath)
-end
-
-% Define fieldnames for Events and Timeline
 fieldsTL = {'DateTime','ActiveGroup','SensingChannel','SensingFrequency','LfpPower','LowerLfpThreshold','UpperLfpThreshold','StimulationAmplitude','LowerStimulationLimit','UpperStimulationLimit','StimulationFrequency','PulseWidth'};
 fieldsSE = {'DateTime','EventName','EventID','SensingChannel','Frequency','Magnitude','StimulationAmplitude','StimulationFrequency','PulseWidth'};
 
-%% Loop over folders
-for f = 1:nfldr
+% Check if underlying folders are added to path, otherwise do so
+if ~exist('mainPath','var')
+    mainPath = pwd;
+    addpath(genpath(mainPath))
+end
+            
+% Get files and directories
+[fileData, savepath] = getFiles(dataset);
+if dataset == 2
+    showFig = 0;
+end
 
-    % Get files within directory in case of dataset of folders
+%% Loop over folders
+for f = 1:fileData.nfolders
+
+    % Get files within directory in case of folderset processing
     if dataset == 2
-        files = dir([rootFolder '\' fldrs(f).name '\**\*.json']);
-        if isempty(files)
+        fileData.files = dir([fileData.rootPath '\' fileData.folders(f).name '\**\*.json']);
+        if isempty(fileData.files)
             continue
         else
-            fileTable = struct2table(files);
+            fileTable = struct2table(fileData.files);
             if height(fileTable) == 1
                 [~,idx,~] = unique({fileTable.name});
             else
                 [~,idx,~] = unique(fileTable.name);
             end
-            files = files(idx,:);
-            nfiles = length(files);
+            fileData.files = fileData.files(idx,:);
+            fileData.nfiles = length(fileData.files);
         end
     end
 
-    % Initialise structure for Timeline data
-    dataTimeline = struct;
-    dataTimeline.DataType = 'LFPTrendLogs';
-    dataTimeline.Info = [];
-    dataTimeline.Labels = {'LEFT','RIGHT'};
-    for n = 1:length(fieldsTL)
-        dataTimeline.Data.(fieldsTL{n}) = [];
-    end
-    dataTimeline.History = struct;
-    
-    % Initialise structure for Events data
-    dataEvents = struct;
-    dataEvents.DataType = 'LfpFrequencySnapshotEvents';
-    dataEvents.Info = [];
-    dataEvents.Labels = {'LEFT', 'RIGHT'};
-    dataEvents.Data = struct;
-    for n = 1:length(fieldsSE)
-        dataEvents.Data.(fieldsSE{n}) = [];
-    end
+    % Get empty output structures for Timeline and Events data
+    dataTimeline = getStructures('Timeline', fieldsTL);
+    dataEvents = getStructures('Events', fieldsSE);
 
     %% Loop over files
-    for i = 1:nfiles
+    for i = 1:fileData.nfiles
 
         % Retrieve file and folder; define name to save data under
         if dataset == 0
-            savename_json = fname(1:end-5);
+            folder = fileData.rootPath;
+            filename = fileData.files;
+            savenameJSON = filename(1:end-5);
         elseif dataset == 1
-            fldr = files(i).folder;
-            fname = files(i).name;
-            savename_json = [rootName '_json' num2str(i) '_' fname(1:end-5)];
+            folder = fileData.files(i).folder;
+            filename = fileData.files(i).name;
+            savenameJSON = [fileData.rootName '_json' num2str(i) '_' filename(1:end-5)];
         elseif dataset == 2
-            fldr = files(i).folder;
-            fname = files(i).name;
-            savename_json = [fldrs(f).name '_json' num2str(i) '_' fname(1:end-5)];
+            folder = fileData.files(i).folder;
+            filename = fileData.files(i).name;
+            savenameJSON = [fileData.folders(f).name '_json' num2str(i) '_' filename(1:end-5)];
         end
 
-        % Load JSON
-        js = jsondecode(fileread([fldr filesep fname]));
-
-        % Collect relevant information
-        info = {};
-        info.OriginalFolder = fldr;
-        info.OriginalFile = fname;
-        info.SessionStartDateUtc = datetime(strrep(js.SessionDate(1:end-1),'T',' '));
-        info.SessionEndDateUtc = datetime(strrep(js.SessionEndDate(1:end-1),'T',' '));
-        info.ProgrammerUtcOffset = js.ProgrammerUtcOffset;
-        info.GroupsInitial = js.Groups.Initial;
-        info.GroupsFinal = js.Groups.Final;
-        if isfield(js, 'GroupHistory')
-            info.GroupHistory = js.GroupHistory;
-        else
-            info.GroupHistory = {};
-        end
-        if isfield(js, 'DiagnosticData')
-            info.EventLogs = js.DiagnosticData.EventLogs;
-        else
-            info.EventLogs = {};
-        end
-    
-        % Always add info to dataTimeline, for first sensing info
+        % Load JSON and collect general info
+        js = jsondecode(fileread([folder filesep filename]));
+        info = getInfo(folder, filename, js);
         dataTimeline.Info = vertcat(dataTimeline.Info, info);
     
         % Check data types in file and loop over data types present
@@ -215,40 +104,27 @@ for f = 1:nfldr
                 end
         
                 switch datafields{b}
-                        
-                    % Streaming
-                    case 'BrainSenseTimeDomain'
-
-                        % Define savepath
-                        if dataset == 2
-                            savepath_streaming = [savepath filesep 'Streaming'];
-                            if ~exist(savepath_streaming, 'dir')
-                               mkdir(savepath_streaming)
-                            end
-                        else
-                            savepath_streaming = savepath;
-                        end
-
-                        % Get data and plot if applicable
-                        dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rWindow, savepath_streaming, savename_json, plotData, showFig);
 
                     % Setup
                     case 'SenseChannelTests'
 
-                        % Define savepath
+                        % Folderset processing
                         if dataset == 2
                             savepath_setup = [savepath filesep 'Setup'];
-                            if ~exist(savepath_setup, 'dir')
-                               mkdir(savepath_setup)
+                            if ~exist([savepath filesep 'Setup'], 'dir')
+                               mkdir([savepath filesep 'Setup'])
                             end
-                        else
-                            savepath_setup = savepath;
-                        end
+                            dataSetup = getSetup(info, js, [savepath filesep 'Setup'], savenameJSON);
+                            if plotData
+                                plotSetup(dataSetup, [savepath filesep 'Setup' filesep 'Figures'], savenameJSON, showFig);
+                            end
 
-                        % Get data and plot if applicable
-                        dataSetup = getSetup(info, js, savepath_setup, savename_json);
-                        if plotData
-                            plotSetup(dataSetup, [savepath_setup filesep 'Figures'], savename_json, showFig);
+                        % Single file and folder processing
+                        else
+                            dataSetup = getSetup(info, js, savepath, savenameJSON);
+                            if plotData
+                                plotSetup(dataSetup, [savepath filesep 'Figures'], savenameJSON, showFig);
+                            end
                         end
 
                     % Survey old format
@@ -257,20 +133,22 @@ for f = 1:nfldr
                         % Only if new format is not present
                         if ~isfield(js, 'BrainSenseSurveysTimeDomain')
 
-                            % Define savepath
+                            % Folderset processing
                             if dataset == 2
-                                savepath_survey = [savepath filesep 'Survey'];
-                                if ~exist(savepath_survey, 'dir')
-                                   mkdir(savepath_survey)
+                                if ~exist([savepath filesep 'Survey'], 'dir')
+                                   mkdir([savepath filesep 'Survey'])
                                 end
-                            else
-                                savepath_survey = savepath;
-                            end
+                                dataSurvey = getSurvey(info, js, [], [savepath filesep 'Survey'], savenameJSON);
+                                if plotData
+                                    plotSurveys(dataSurvey, [savepath filesep 'Survey' filesep 'Figures'], savenameJSON, showFig);
+                                end
 
-                            % Get data and plot if applicable
-                            dataSurvey = getSurvey(info, js, [], savepath_survey, savename_json);
-                            if plotData
-                                plotSurveys(dataSurvey, [savepath_survey filesep 'Figures'], savename_json, showFig);
+                            % Single file and folder processing
+                            else
+                                dataSurvey = getSurvey(info, js, [], savepath, savenameJSON);
+                                if plotData
+                                    plotSurveys(dataSurvey, [savepath filesep 'Figures'], savenameJSON, showFig);
+                                end
                             end
                         end
 
@@ -282,43 +160,64 @@ for f = 1:nfldr
                             if isfield(js.BrainSenseSurveysTimeDomain{idx}, 'ElectrodeSurvey')
                                 if ~isempty(vertcat(js.BrainSenseSurveysTimeDomain{idx}.ElectrodeSurvey.TimeDomainDatainMicroVolts))
 
-                                    % Define savepath
+                                    % Folderset processing
                                     if dataset == 2
                                         savepath_survey = [savepath filesep 'Survey'];
-                                        if ~exist(savepath_survey, 'dir')
-                                           mkdir(savepath_survey)
+                                        if ~exist([savepath filesep 'Survey'], 'dir')
+                                           mkdir([savepath filesep 'Survey'])
                                         end
-                                    else
-                                        savepath_survey = savepath;
-                                    end
+                                        dataSurvey = getSurvey(info, js, idx, [savepath filesep 'Survey'], savenameJSON);
+                                        if plotData
+                                            plotSurveys(dataSurvey, [savepath filesep 'Survey' filesep 'Figures'], savenameJSON, showFig);
+                                        end
 
-                                    % Get data and plot if applicable
-                                    dataSurvey = getSurvey(info, js, idx, savepath_survey, savename_json);
-                                    if plotData
-                                        plotSurveys(dataSurvey, [savepath_survey filesep 'Figures'], savename_json, showFig);
+                                    % Single file and folder processing
+                                    else
+                                        dataSurvey = getSurvey(info, js, idx, savepath, savenameJSON);
+                                        if plotData
+                                            plotSurveys(dataSurvey, [savepath filesep 'Figures'], savenameJSON, showFig);
+                                        end
                                     end
                                 end
 
                             elseif isfield(js.BrainSenseSurveysTimeDomain{idx}, 'ElectrodeIdentifier')
                                 if ~isempty(vertcat(js.BrainSenseSurveysTimeDomain{idx}.ElectrodeIdentifier.TimeDomainDatainMicroVolts))
 
-                                    % Define savepath
+                                    % Folderset processing
                                     if dataset == 2
                                         savepath_identifier = [savepath filesep 'Identifier'];
-                                        if ~exist(savepath_identifier, 'dir')
-                                           mkdir(savepath_identifier)
+                                        if ~exist([savepath filesep 'Identifier'], 'dir')
+                                           mkdir([savepath filesep 'Identifier'])
                                         end
-                                    else
-                                        savepath_identifier = savepath;
-                                    end
+                                        dataIdentifier = getIdentifier(info, js, idx, [savepath filesep 'Identifier'], savenameJSON);
+                                        if plotData
+                                            plotSurveys(dataIdentifier, [savepath filesep 'Identifier' filesep 'Figures'], savenameJSON, showFig);
+                                        end
 
-                                    % Get data and plot if applicable
-                                    dataIdentifier = getIdentifier(info, js, idx, savepath_identifier, savename_json);
-                                    if plotData
-                                        plotSurveys(dataIdentifier, [savepath_identifier filesep 'Figures'], savename_json, showFig);
+                                    % Single file and folder processing
+                                    else
+                                        dataIdentifier = getIdentifier(info, js, idx, savepath, savenameJSON);
+                                        if plotData
+                                            plotSurveys(dataIdentifier, [savepath filesep 'Figures'], savenameJSON, showFig);
+                                        end
                                     end
                                 end
                             end
+                        end
+
+                    % Streaming
+                    case 'BrainSenseTimeDomain'
+
+                        % Folderset processing
+                        if dataset == 2
+                            if ~exist([savepath filesep 'Streaming'], 'dir')
+                               mkdir([savepath filesep 'Streaming'])
+                            end
+                            dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rWindow, [savepath filesep 'Streaming'], savenameJSON, plotData, showFig);
+
+                        % Single file and folder processing
+                        else
+                            dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rWindow, savepath, savenameJSON, plotData, showFig);
                         end
 
                     case 'DiagnosticData'
@@ -346,93 +245,30 @@ for f = 1:nfldr
         end
     end
 
-    %% Further processing Timeline data
+    %% Process, save and plot aggregated Timeline data
     if ~isempty(dataTimeline.Data.LfpPower)
-
-        % Define savename
-        if dataset == 0
-            savename = fname(1:end-5);
-        elseif dataset == 1
-            savename = rootName;
-        elseif dataset == 2
-            savename = fldrs(f).name;
-        end
-        
-        % Further processing
-        dataTimeline.Data = sortrows(struct2table(dataTimeline.Data),'DateTime');     % Convert to table and sort on datetime       
-        dataTimeline = checkDuplicates(dataTimeline, fieldsTL);                       % Remove duplicates
-        dataTimeline = addNaN(dataTimeline);                                          % Insert NaN for missing values
-        dataTimeline = addParameters(dataTimeline, tZone);                            % Get sensing and stimulation parameters and assign to data
-
-        % Change timezone to correct for UTC offset
-        dataTimeline.Data.DateTime.TimeZone = 'UTC';
-        dataTimeline.Data.DateTime.TimeZone = tZone;
-        dataTimeline.TimeZone = tZone;
-    
-        % Save data
-        if dataset == 0
-            save([savepath filesep savename '_Timeline.mat'], 'dataTimeline')
-        elseif dataset == 1
-            save([savepath filesep savename '_Timeline.mat'], 'dataTimeline')
-        elseif dataset == 2
-            savepath_TL = [savepath filesep 'Timeline'];
-            if ~exist(savepath_TL, 'dir')
-               mkdir(savepath_TL)
-            end
-            save([savepath_TL filesep savename '_Timeline.mat'], 'dataTimeline')
-        end
-    
-        % Plot data
+        dataTimeline = processAggregated(dataTimeline, {}, fieldsTL, dataset, fileData, tZone, savepath, filename, f);
         if plotData == 1
             if dataset == 0
-                plotTimeline(dataTimeline, [savepath filesep 'Figures'], savename, showFig)
+                plotTimeline(dataTimeline, [savepath filesep 'Figures'], filename(1:end-5), showFig)
             elseif dataset == 1
-                plotTimeline(dataTimeline, [savepath filesep 'Figures'], savename, showFig)
+                plotTimeline(dataTimeline, [savepath filesep 'Figures'], fileData.rootName, showFig)
             elseif dataset == 2
-                plotTimeline(dataTimeline, [savepath_TL filesep 'Figures'], savename, showFig)
+                plotTimeline(dataTimeline, [savepath filesep 'Timeline' filesep 'Figures'], fileData.folders(f).name, showFig)
             end
         end
     end
-    
-    %% Further processing Events data
+
+    %% Process, save and plot aggregated Events data
     if ~isempty([dataEvents.Data.EventName])
-
-        % Further processing
-        dataEvents.Data = dataEvents.Data(2:end);                         % Remove first empty row
-        if length(dataEvents.Data) > 1                                    % Convert to table and sort on datetime
-            dataEvents.Data = sortrows(struct2table(dataEvents.Data),'DateTime');     
-        end
-        dataEvents = checkDuplicates(dataEvents);                         % Remove duplicates
-
-        % Change timezone to correct for UTC offset
-        dataEvents.Data.DateTime.TimeZone = 'UTC';
-        dataEvents.Data.DateTime.TimeZone = tZone;
-        dataEvents.TimeZone = tZone;
-
-        % Add stimulation amplitude, pulsewidth and frequency
-        dataEvents = addStimInfo(dataEvents, dataTimeline);
-
-        % Save data
-        if dataset == 0
-            save([savepath filesep fname(1:end-5) '_Events.mat'], 'dataEvents')
-        elseif dataset == 1
-            save([savepath filesep rootName '_Events.mat'], 'dataEvents')
-        elseif dataset == 2
-            savepath_SE = [savepath filesep 'Events'];
-            if ~exist(savepath_SE, 'dir')
-               mkdir(savepath_SE)
-            end
-            save([savepath_SE filesep fldrs(f).name '_Events.mat'], 'dataEvents')
-        end
-
-        % Plot data
+        dataEvents = processAggregated(dataEvents, dataTimeline, {}, dataset, fileData, tZone, savepath, filename, f);
         if plotData == 1
             if dataset == 0
-                plotEvents(dataEvents, [savepath filesep 'Figures'], fname(1:end-5), showFig)
+                plotEvents(dataEvents, [savepath filesep 'Figures'], filename(1:end-5), showFig)
             elseif dataset == 1
-                plotEvents(dataEvents, [savepath filesep 'Figures'], rootName, showFig)
+                plotEvents(dataEvents, [savepath filesep 'Figures'], fileData.rootName, showFig)
             elseif dataset == 2
-                plotEvents(dataEvents, [savepath_SE filesep 'Figures'], fldrs(f).name, showFig)
+                plotEvents(dataEvents, [savepath filesep 'Events' filesep 'Figures'], fileData.folders(f).name, showFig)
             end
         end
     end

@@ -13,10 +13,38 @@
 % MAT files containing either dataStreaming, dataTimeline, dataEvents,
 % dataSurvey, dataIdentifier or dataSetup. Figures are created and saved 
 % into a subfolder of the folder containing the MAT file(s).
+%
+% This is an open research tool that is not intended for clinical purposes.
+
+%% Check if underlying folders are added to path, otherwise do so
+if ~exist('mainPath','var')
+    mainPath = pwd;
+    addpath(genpath(mainPath))
+end
 
 %% Settings
-folder = 0;      % Select either a single file (0) or a folder (1)
+folder = 1;      % Select either a single file (0) or a folder (1)
 showFig = 1;     % Show figures (1) or not (0)
+
+%% Clear existing output variables if needed
+if exist('dataStreaming', 'var')
+    clear dataStreaming
+end
+if exist('dataSurvey', 'var')
+    clear dataSurvey
+end
+if exist('dataIdentifier', 'var')
+    clear dataIdentifier
+end
+if exist('dataSetup', 'var')
+    clear dataSetup
+end
+if exist('dataTimeline', 'var')
+    clear dataTimeline
+end
+if exist('dataEvents', 'var')
+    clear dataEvents
+end
 
 %% Get files and directories
 
@@ -62,17 +90,22 @@ for i = 1:size(files,1)
 
     % Streaming
     if exist('dataStreaming', 'var')
-        if strcmp(dataStreaming.DataType, 'BrainSenseTimeDomain/BrainSenseLfp')
-        
-            % Loop over recordings in data
-            for r = 1:length(dataStreaming)
+        for r = 1:length(dataStreaming)
+            try 
                 dataRec = dataStreaming(r);
-                plotStreaming(dataRec, length(dataStreaming), dataRec.EcgMethod, savepath, [fsave '_Streaming_rec' num2str(r)], showFig)
+            catch
+                error('The file %s is of incorrect format. Only outputs from the ALFA toolbox are accepted.', [files(i).folder filesep fsave])
             end
-            clear dataStreaming
-        else
-            error('The file %s is of incorrect format. Only outputs from the ALFA toolbox are accepted.', [files(i).folder filesep fsave])
+
+            % Loop over recordings in data
+            if strcmp(dataRec.DataType, 'BrainSenseTimeDomain/BrainSenseLfp')
+                plotStreaming(dataRec, length(dataStreaming), dataRec.EcgMethod, savepath, [fsave '_Streaming_rec' num2str(r)], showFig)
+                clear dataRec
+            else
+                error('The file %s is of incorrect format. Only outputs from the ALFA toolbox are accepted.', [files(i).folder filesep fsave])
+            end
         end
+        clear dataStreaming
         
     % Survey
     elseif exist('dataSurvey', 'var')
