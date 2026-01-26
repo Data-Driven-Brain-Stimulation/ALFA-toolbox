@@ -32,18 +32,18 @@ plotData = 1;                           % Plot data (1) or not (0)
 showFig = 0;                            % Show figures (1) or not (0)
 
 %% Standard settings and collection of files
-datafields = {'BrainSenseTimeDomain','DiagnosticData','LfpMontageTimeDomain','BrainSenseSurveysTimeDomain','SenseChannelTests'};
+datafields = {'SenseChannelTests','LfpMontageTimeDomain','BrainSenseSurveysTimeDomain','BrainSenseTimeDomain','DiagnosticData'};
 fieldsTL = {'DateTime','ActiveGroup','SensingChannel','SensingFrequency','LfpPower','LowerLfpThreshold','UpperLfpThreshold','StimulationAmplitude','LowerStimulationLimit','UpperStimulationLimit','StimulationFrequency','PulseWidth'};
 fieldsSE = {'DateTime','EventName','EventID','SensingChannel','Frequency','Magnitude','StimulationAmplitude','StimulationFrequency','PulseWidth'};
 
 % Check if underlying folders are added to path, otherwise do so
 if ~exist('mainPath','var')
-    mainPath = pwd;
-    addpath(genpath(mainPath))
+    toolboxPath = pwd;
+    addpath(genpath(toolboxPath))
 end
             
 % Get files and directories
-[fileData, savepath] = getFiles(dataset);
+[fileData, savepath] = getFileData(dataset);
 if dataset == 2
     showFig = 0;
 end
@@ -68,9 +68,11 @@ for f = 1:fileData.nfolders
         end
     end
 
-    % Get empty output structures for Timeline and Events data
+    % Get empty output structures for Timeline and Events data and data log
     dataTimeline = getStructures('Timeline', fieldsTL);
     dataEvents = getStructures('Events', fieldsSE);
+    dataLog = table('Size',[fileData.nfiles,7], 'VariableTypes',{'string','int64','int64','int64','int64','int64','int64'}, ...
+                     'VariableNames',{'Filename','Setup_n_runs','Survey_n_runs','Identifier_n_runs','Streaming_n_runs','Timeline_present','Events_present'});
 
     %% Loop over files
     for i = 1:fileData.nfiles
@@ -89,6 +91,9 @@ for f = 1:fileData.nfolders
             filename = fileData.files(i).name;
             savenameJSON = [fileData.folders(f).name '_json' num2str(i) '_' filename(1:end-5)];
         end
+
+        % Add filename to log
+        dataLog{i,"Filename"} = string(filename);
 
         % Load JSON and collect general info
         js = jsondecode(fileread([folder filesep filename]));
@@ -127,6 +132,9 @@ for f = 1:fileData.nfolders
                             end
                         end
 
+                        % Add number of runs to log
+                        dataLog{i,'Setup_n_runs'} = dataSetup.nRuns;
+
                     % Survey old format
                     case 'LfpMontageTimeDomain'
 
@@ -150,6 +158,9 @@ for f = 1:fileData.nfolders
                                     plotSurveys(dataSurvey, [savepath filesep 'Figures'], savenameJSON, showFig);
                                 end
                             end
+
+                            % Add number of runs to log
+                            dataLog{i,'Survey_n_runs'} = dataSurvey.nRuns;
                         end
 
                     % Survey and Identifier
@@ -178,6 +189,9 @@ for f = 1:fileData.nfolders
                                             plotSurveys(dataSurvey, [savepath filesep 'Figures'], savenameJSON, showFig);
                                         end
                                     end
+
+                                    % Add number of runs to log
+                                    dataLog{i,'Survey_n_runs'} = dataSurvey.nRuns;
                                 end
 
                             elseif isfield(js.BrainSenseSurveysTimeDomain{idx}, 'ElectrodeIdentifier')
@@ -201,6 +215,9 @@ for f = 1:fileData.nfolders
                                             plotSurveys(dataIdentifier, [savepath filesep 'Figures'], savenameJSON, showFig);
                                         end
                                     end
+
+                                    % Add number of runs to log
+                                    dataLog{i,'Identifier_n_runs'} = dataIdentifier.nRuns;
                                 end
                             end
                         end
@@ -220,6 +237,9 @@ for f = 1:fileData.nfolders
                             dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rWindow, savepath, savenameJSON, plotData, showFig);
                         end
 
+                        % Add number of runs to log
+                        dataLog{i,'Streaming_n_runs'} = length(dataStreaming);
+
                     case 'DiagnosticData'
 
                         % Timeline
@@ -230,6 +250,7 @@ for f = 1:fileData.nfolders
                             for n = 1:length(fieldsTL)
                                 dataTimeline.Data.(fieldsTL{n}) = vertcat(dataTimeline.Data.(fieldsTL{n}), timeline.(fieldsTL{n}));
                             end
+                            dataLog{i,'Timeline_present'} = 1;
                         end
 
                         % Events
@@ -239,6 +260,7 @@ for f = 1:fileData.nfolders
                             events = getEvents(data.LfpFrequencySnapshotEvents, fieldsSE);
                             dataEvents.Info = vertcat(dataEvents.Info, info);
                             dataEvents.Data = horzcat(dataEvents.Data, events);
+                            dataLog{i,'Events_present'} = 1;
                         end
                 end
             end
@@ -271,5 +293,17 @@ for f = 1:fileData.nfolders
                 plotEvents(dataEvents, [savepath filesep 'Events' filesep 'Figures'], fileData.folders(f).name, showFig)
             end
         end
+    end
+
+    %% Complete and save datalog
+    if dataset == 0
+        saveLogs(dataLog, dataTimeline, dataEvents, savepath, ['file_' filename(1:end-5)], [])
+    elseif dataset == 1
+        saveLogs(dataLog, dataTimeline, dataEvents, savepath, ['folder_' fileData.rootName], [])
+    elseif dataset == 2
+        if ~exist([savepath filesep 'Data logs'], 'dir')
+           mkdir([savepath filesep 'Data logs'])
+        end
+        saveLogs(dataLog, dataTimeline, dataEvents, [savepath filesep 'Data logs'], ['folder_' fileData.folders(f).name], fileData.rootName)
     end
 end

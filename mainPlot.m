@@ -18,12 +18,12 @@
 
 %% Check if underlying folders are added to path, otherwise do so
 if ~exist('mainPath','var')
-    mainPath = pwd;
-    addpath(genpath(mainPath))
+    toolboxPath = pwd;
+    addpath(genpath(toolboxPath))
 end
 
 %% Settings
-folder = 1;      % Select either a single file (0) or a folder (1)
+folder = 0;      % Select either a single file (0) or a folder (1)
 showFig = 1;     % Show figures (1) or not (0)
 
 %% Clear existing output variables if needed
@@ -57,6 +57,7 @@ if folder == 0
         files.name = file;
         files.folder = rootFolder;
         savepath = [rootFolder filesep 'Figures'];
+        fprintf('------------------\nFigures created of file:\n')
     else
         error('No file selected. Try again.')
     end
@@ -76,17 +77,21 @@ else
             [~,idx,~] = unique(fileTable.name);
             files = files(idx,:);
             savepath = [rootFolder filesep 'Figures'];
+
+            folderParts = split(rootFolder, filesep);
+            fprintf('------------------\nFigures created of files in: %s\n', folderParts{end})
         end
     else
         error('No folder selected. Try again.')
     end
-end
+end    
 
 %% Loop over files and load data
 for i = 1:size(files,1)
     load([files(i).folder filesep files(i).name]);
     fsave = split(files(i).name,"_");
     fsave = strjoin(fsave(1:end-1),"_");
+    fprintf('  %s\n', files(i).name)
 
     % Streaming
     if exist('dataStreaming', 'var')
@@ -158,3 +163,5 @@ for i = 1:size(files,1)
     end
 end
 
+% End log
+fprintf('Figures saved in: %s\n------------------\n', files(i).folder(1:end-1))
