@@ -4,8 +4,9 @@
 % Copyright 2025 B.J. Keulen and M.J. Stam
 % SPDX-License-Identifier: Apache-2.0
 %
-% Function for the collection of JSON files and their directories, and to
-% define and create the path to which output structured will be saved.
+% Function for further processing of aggregated Events and Timeline data.
+% Duplicates are removed, missing values and parameters are added (Timeline
+% only) and datetime values are time zone corrected.
 % 
 % INPUT
 %   dataStruct      =   struct with aggregated dataTimeline or dataEvents
