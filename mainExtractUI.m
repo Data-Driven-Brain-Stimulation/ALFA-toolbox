@@ -299,9 +299,6 @@ for f = 1:fileData.nfolders
     elseif settings.dataset == 1
         saveLogs(dataLog, dataTimeline, dataEvents, savepath, ['folder_' fileData.rootName], [])
     elseif settings.dataset == 2
-        if ~exist([savepath filesep 'Data logs'], 'dir')
-           mkdir([savepath filesep 'Data logs'])
-        end
-        saveLogs(dataLog, dataTimeline, dataEvents, [savepath filesep 'Data logs'], ['folder_' fileData.folders(f).name], fileData.rootName)
+        saveLogs(dataLog, dataTimeline, dataEvents, savepath, ['folder_' fileData.folders(f).name], fileData.rootName)
     end
 end

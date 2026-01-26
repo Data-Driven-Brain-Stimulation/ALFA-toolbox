@@ -28,7 +28,7 @@ ecgMethod = 1;                          % ECG suppression of Streaming data: set
 rWindow = [0.25 0.4];                   % Window around R-peak [before after] for calculating SVD components, in seconds. [0.25 0.4] is default, alternatively use [0.2 0.2]
 linenoise = [50, 0.2];                  % Frequency and bandwidth [Hz] of line-noise to remove, usually either 50 or 60 Hz with 0.2 or 0.5 Hz bandwidth
 tZone = datetime().SystemTimeZone;      % Timezone to use for correcting for UTC offset and daylight saving time of Timeline and Events data. Default is datetime().SystemTimeZone. Set manually by replacing with IANA timezone name (see command timezones())
-plotData = 1;                           % Plot data (1) or not (0)
+plotData = 0;                           % Plot data (1) or not (0)
 showFig = 0;                            % Show figures (1) or not (0)
 
 %% Standard settings and collection of files
@@ -301,9 +301,6 @@ for f = 1:fileData.nfolders
     elseif dataset == 1
         saveLogs(dataLog, dataTimeline, dataEvents, savepath, ['folder_' fileData.rootName], [])
     elseif dataset == 2
-        if ~exist([savepath filesep 'Data logs'], 'dir')
-           mkdir([savepath filesep 'Data logs'])
-        end
-        saveLogs(dataLog, dataTimeline, dataEvents, [savepath filesep 'Data logs'], ['folder_' fileData.folders(f).name], fileData.rootName)
+        saveLogs(dataLog, dataTimeline, dataEvents, savepath, ['folder_' fileData.folders(f).name], fileData.rootName)
     end
 end
