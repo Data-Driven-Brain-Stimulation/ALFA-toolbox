@@ -21,7 +21,7 @@
 %   dataIdentifier  =   struct containing info and Electrode Identifier 
 %                       data
 
-function dataIdentifier = getIdentifier(info, js, idx, savepath, savename_json)
+function dataIdentifier = getIdentifier(info, js, idx, savepath, savenameJSON)
 
     % Initialise export structure
     dataIdentifier = [];
@@ -149,7 +149,6 @@ function dataIdentifier = getIdentifier(info, js, idx, savepath, savename_json)
     if ~exist(savepath, 'dir')
         mkdir(savepath)
     end
-    savename = [savename_json '_Identifier'];
-    save([savepath filesep savename '.mat'], 'dataIdentifier')
+    save([savepath filesep savenameJSON '_Identifier'], 'dataIdentifier')
 
 end

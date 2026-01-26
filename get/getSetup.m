@@ -17,7 +17,7 @@
 %   dataSetup       =   struct containing info and data saved in
 %                       MostRecentInSessonSignalCheck and SenseChannelTests
 
-function dataSetup = getSetup(info, js, savepath, savename_json)
+function dataSetup = getSetup(info, js, savepath, savenameJSON)
 
     % Initialise export structure
     dataSetup = [];
@@ -130,7 +130,6 @@ function dataSetup = getSetup(info, js, savepath, savename_json)
     if ~exist(savepath, 'dir')
         mkdir(savepath)
     end
-    savename = [savename_json '_Setup'];
-    save([savepath filesep savename '.mat'], 'dataSetup')
+    save([savepath filesep savenameJSON '_Setup'], 'dataSetup')
 
 end

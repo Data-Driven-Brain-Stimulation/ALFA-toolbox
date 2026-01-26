@@ -31,7 +31,7 @@
 %   dataStreaming   =   1xn struct containing Streaming data with n rows
 %                       corresponding to each recording within JSON
 
-function dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rTime, savepath, savename_json, plotData, showFig)
+function dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rTime, savepath, savenameJSON, plotData, showFig)
 
     % Extract required fields
     TDdata = js.BrainSenseTimeDomain;
@@ -240,12 +240,12 @@ function dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rTime, sav
             dataRec = filterECG(dataRec, rTime);
         elseif ecgMethod == 2
             dataRec = filterLinenoise(dataRec, linenoise);
-            dataRec = filterECGfull(info, dataRec, rTime, savename_json, c);
+            dataRec = filterECGfull(info, dataRec, rTime, savenameJSON, c);
         end
 
         % Plot data if applicable
         if plotData
-            plotStreaming(dataRec, length(runs), ecgMethod, [savepath filesep 'Figures'], [savename_json '_Streaming_rec' num2str(c)], showFig);
+            plotStreaming(dataRec, length(runs), ecgMethod, [savepath filesep 'Figures'], [savenameJSON '_Streaming_rec' num2str(c)], showFig);
         end
 
         % Save all recordings into one struct, which can be given as output if needed
@@ -256,6 +256,6 @@ function dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rTime, sav
     if ~exist(savepath, 'dir')
         mkdir(savepath)
     end
-    save([savepath filesep savename_json '_Streaming'], 'dataStreaming')
+    save([savepath filesep savenameJSON '_Streaming'], 'dataStreaming')
 
 end
