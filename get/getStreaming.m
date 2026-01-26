@@ -240,7 +240,7 @@ function dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rTime, sav
             dataRec = filterECG(dataRec, rTime);
         elseif ecgMethod == 2
             dataRec = filterLinenoise(dataRec, linenoise);
-            dataRec = filterECGfull(info, dataRec, rTime, savenameJSON, c);
+            dataRec = filterECGfull(dataRec, rTime, savepath, savenameJSON, c);
         end
 
         % Plot data if applicable
