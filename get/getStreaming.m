@@ -157,7 +157,8 @@ function dataStreaming = getStreaming(info, js, linenoise, ecgMethod, rTime, sav
             stim.Amplitude = stim.Amplitude(iT,:);
             power.Value = [power.Value; nan(length(nanTime),2)];
             power.Value = power.Value(iT,:);
-        end        
+        end
+        power.Value = power.Value(:,~all(isnan(power.Value)));
 
         % Retrieve settings
         settings = {};
