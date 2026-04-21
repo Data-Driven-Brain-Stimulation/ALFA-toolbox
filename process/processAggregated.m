@@ -52,11 +52,10 @@ function dataStruct = processAggregated(dataStruct, dataTL, fields, dataset, fil
     % Further processing Events data
     elseif strcmp(dataStruct.DataType, 'LfpFrequencySnapshotEvents') 
         dataStruct.Data = dataStruct.Data(2:end);                                 % Remove first empty row
-        if length(dataStruct.Data) > 1                                            % Convert to table and sort on datetime
-            dataStruct.Data = sortrows(struct2table(dataStruct.Data),'DateTime');     
+        if length(dataStruct.Data) > 1                                            
+            dataStruct.Data = sortrows(struct2table(dataStruct.Data),'DateTime'); % Convert to table and sort on datetime
+            dataStruct = checkDuplicates(dataStruct);                             % Remove duplicates
         end
-        dataStruct = checkDuplicates(dataStruct);                                 % Remove duplicates
-        
     else
         error('Incorrect input structure. Only dataTimeline and dataEvents are allowed.')
     end
