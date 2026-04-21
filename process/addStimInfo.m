@@ -22,28 +22,16 @@ function dataEvents = addStimInfo(dataEvents, dataTimeline)
     if ~isempty(dataTimeline.Data.LfpPower)
 
         % Loop over events
-        if istable(dataEvents.Data)
-            for e = 1:height(dataEvents.Data)
-        
-                % Find index of Timeline time array closest to Event time
-                [delta, idx] = min(abs(dataTimeline.Data.DateTime - dataEvents.Data{e,'DateTime'}));
-        
-                % Add stimulation amplitude, pulsewidth and frequency if difference is less than 15 min
-                if delta < duration('00:15:00')
-                    dataEvents.Data{e,'StimulationAmplitude'} = dataTimeline.Data.StimulationAmplitude(idx,:);
-                    dataEvents.Data{e,'PulseWidth'} = dataTimeline.Data.PulseWidth(idx,:);
-                    dataEvents.Data{e,'StimulationFrequency'} = dataTimeline.Data.StimulationFrequency(idx,:);
-                end
-            end
-        else
+        for e = 1:height(dataEvents.Data)
+    
             % Find index of Timeline time array closest to Event time
-            [delta, idx] = min(abs(dataTimeline.Data.DateTime - dataEvents.Data.DateTime));
+            [delta, idx] = min(abs(dataTimeline.Data.DateTime - dataEvents.Data{e,'DateTime'}));
     
             % Add stimulation amplitude, pulsewidth and frequency if difference is less than 15 min
             if delta < duration('00:15:00')
-                dataEvents.Data.StimulationAmplitude = dataTimeline.Data.StimulationAmplitude(idx,:);
-                dataEvents.Data.PulseWidth = dataTimeline.Data.PulseWidth(idx,:);
-                dataEvents.Data.StimulationFrequency = dataTimeline.Data.StimulationFrequency(idx,:);
+                dataEvents.Data{e,'StimulationAmplitude'} = dataTimeline.Data.StimulationAmplitude(idx,:);
+                dataEvents.Data{e,'PulseWidth'} = dataTimeline.Data.PulseWidth(idx,:);
+                dataEvents.Data{e,'StimulationFrequency'} = dataTimeline.Data.StimulationFrequency(idx,:);
             end
         end
     end

@@ -54,8 +54,10 @@ function dataStruct = processAggregated(dataStruct, dataTL, fields, dataset, fil
         dataStruct.Data = dataStruct.Data(2:end);                                 % Remove first empty row
         if length(dataStruct.Data) > 1                                            
             dataStruct.Data = sortrows(struct2table(dataStruct.Data),'DateTime'); % Convert to table and sort on datetime
-            dataStruct = checkDuplicates(dataStruct);                             % Remove duplicates
+        else
+            dataStruct.Data = struct2table(dataStruct.Data,'AsArray',true);       % Convert to table
         end
+        dataStruct = checkDuplicates(dataStruct);                                 % Remove duplicates
     else
         error('Incorrect input structure. Only dataTimeline and dataEvents are allowed.')
     end
