@@ -268,4 +268,7 @@ function [sessions, changes] = getHistory(dataTimeline)
     if ~isempty(missing)
         sessions = sortrows([sessions; missing],'SessionStart');
     end
+
+    % Sort changes
+    changes = sortrows(changes, 'DateTime');
 end
